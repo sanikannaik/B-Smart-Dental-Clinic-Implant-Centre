@@ -1,0 +1,267 @@
+{
+  "clinicInfo": {
+    "name": "B-Smart Dental Clinic & Implant Centre",
+    "tagline": "Your Smile Deserves Expert Care",
+    "category": "Dental clinic and implant centre",
+    "address": "Savalanga Road, 1st Main Road, Gandhi Nagar, Shivamogga, Karnataka 577201, India",
+    "locality": "Gandhi Nagar, Savalanga Road",
+    "city": "Shivamogga",
+    "state": "Karnataka",
+    "postalCode": "577201",
+    "phone": "+91 94825 84402",
+    "whatsappPhone": "+91 94825 84402",
+    "email": "contact@bsmartdental.in",
+    "googleMapsUrl": "https://maps.app.goo.gl/QBv6DBY7oKg2dL7o8",
+    "timezone": "Asia/Kolkata",
+    "currency": "INR",
+    "emergencyNotice": "For urgent dental pain or emergencies during clinic hours, contact our clinic hotline directly at +91 94825 84402."
+  },
+  "operatingHours": [
+    {
+      "weekday": "Monday",
+      "isOpen": true,
+      "morning": {
+        "open": "10:30",
+        "close": "13:00"
+      },
+      "evening": {
+        "open": "17:00",
+        "close": "22:00"
+      }
+    },
+    {
+      "weekday": "Tuesday",
+      "isOpen": true,
+      "morning": {
+        "open": "10:30",
+        "close": "13:00"
+      },
+      "evening": {
+        "open": "17:00",
+        "close": "22:00"
+      }
+    },
+    {
+      "weekday": "Wednesday",
+      "isOpen": true,
+      "morning": {
+        "open": "10:30",
+        "close": "13:00"
+      },
+      "evening": {
+        "open": "17:00",
+        "close": "22:00"
+      }
+    },
+    {
+      "weekday": "Thursday",
+      "isOpen": true,
+      "morning": {
+        "open": "10:30",
+        "close": "13:00"
+      },
+      "evening": {
+        "open": "17:00",
+        "close": "22:00"
+      }
+    },
+    {
+      "weekday": "Friday",
+      "isOpen": true,
+      "morning": {
+        "open": "10:30",
+        "close": "13:00"
+      },
+      "evening": {
+        "open": "17:00",
+        "close": "22:00"
+      }
+    },
+    {
+      "weekday": "Saturday",
+      "isOpen": true,
+      "morning": {
+        "open": "10:30",
+        "close": "13:00"
+      },
+      "evening": {
+        "open": "17:00",
+        "close": "22:00"
+      }
+    },
+    {
+      "weekday": "Sunday",
+      "isOpen": false,
+      "morning": {
+        "open": "10:30",
+        "close": "13:00"
+      },
+      "evening": {
+        "open": "17:00",
+        "close": "20:00"
+      }
+    }
+  ],
+  "dentists": [
+    {
+      "id": "dr-srinidhi-bhat",
+      "name": "Dr. Srinidhi Bhat",
+      "designation": "Dental Surgeon & Implant Specialist",
+      "verifiedQualifications": "BDS, Implantology Training (Pending Verification)",
+      "biography": "Experienced practitioner focusing on comprehensive oral health, gentle surgical techniques, and durable implant-supported prosthetics in Shivamogga.",
+      "photoUrl": "",
+      "isConfirmedAndApproved": false,
+      "isActive": true
+    }
+  ],
+  "services": [
+    {
+      "id": "service-general-consult",
+      "name": "General Dental Consultation",
+      "slug": "general-dental-consultation",
+      "description": "Comprehensive clinical oral examination, digital intraoral assessment, treatment roadmap, and preventative oral health recommendations.",
+      "durationMinutes": 30,
+      "optionalPrice": "₹300 (Initial Examination & Consultation)",
+      "isPublished": true,
+      "category": "general"
+    },
+    {
+      "id": "service-implants",
+      "name": "Dental Implants",
+      "slug": "dental-implants",
+      "description": "Permanent, titanium-root dental replacements engineered to restore masticatory function, natural aesthetics, and preserve underlying jaw bone structure.",
+      "durationMinutes": 45,
+      "optionalPrice": "Contact the clinic for pricing",
+      "isPublished": true,
+      "category": "implants"
+    },
+    {
+      "id": "service-teeth-cleaning",
+      "name": "Teeth Cleaning & Scaling",
+      "slug": "teeth-cleaning",
+      "description": "Ultrasonic scaling to safely remove calculus (tartar), stubborn plaque, and extrinsic stains, maintaining gingival health and fresh breath.",
+      "durationMinutes": 30,
+      "optionalPrice": "Contact the clinic for pricing",
+      "isPublished": true,
+      "category": "preventive"
+    },
+    {
+      "id": "service-root-canal",
+      "name": "Root Canal Treatment (RCT)",
+      "slug": "root-canal-treatment",
+      "description": "Precision endodontic therapy to eliminate root canal infection, alleviate toothache, and save severely decayed or traumatized natural teeth.",
+      "durationMinutes": 45,
+      "optionalPrice": "Contact the clinic for pricing",
+      "isPublished": true,
+      "category": "restorative"
+    },
+    {
+      "id": "service-crowns-bridges",
+      "name": "Dental Crowns & Bridges",
+      "slug": "dental-crowns-bridges",
+      "description": "Custom ceramic and zirconia restorations fabricated to rebuild fractured teeth, reinforce root canal-treated teeth, and bridge edentulous gaps.",
+      "durationMinutes": 45,
+      "optionalPrice": "Contact the clinic for pricing",
+      "isPublished": true,
+      "category": "restorative"
+    },
+    {
+      "id": "service-tooth-extraction",
+      "name": "Tooth Extraction",
+      "slug": "tooth-extraction",
+      "description": "Gentle, minimally invasive dental extraction for non-restorable, fractured, or problematic wisdom teeth with proper local anaesthesia and postoperative guidance.",
+      "durationMinutes": 30,
+      "optionalPrice": "Contact the clinic for pricing",
+      "isPublished": true,
+      "category": "surgical"
+    },
+    {
+      "id": "service-cosmetic-dentistry",
+      "name": "Cosmetic Dentistry & Smile Enhancement",
+      "slug": "cosmetic-dentistry",
+      "description": "Aesthetic tooth bonding, diastema closures, and composite veneers to harmonize your smile aesthetics.",
+      "durationMinutes": 45,
+      "optionalPrice": "Contact the clinic for pricing",
+      "isPublished": false,
+      "category": "cosmetic"
+    },
+    {
+      "id": "service-gum-care",
+      "name": "Gum Care & Periodontics",
+      "slug": "gum-care",
+      "description": "Specialized periodontal therapeutic care for bleeding gums, gingivitis, and periodontal pocket management.",
+      "durationMinutes": 30,
+      "optionalPrice": "Contact the clinic for pricing",
+      "isPublished": false,
+      "category": "preventive"
+    },
+    {
+      "id": "service-dentures",
+      "name": "Dentures (Complete & Partial)",
+      "slug": "dentures",
+      "description": "Custom-crafted removable complete and partial dentures designed for chewing comfort and facial contour restoration.",
+      "durationMinutes": 45,
+      "optionalPrice": "Contact the clinic for pricing",
+      "isPublished": false,
+      "category": "restorative"
+    },
+    {
+      "id": "service-preventive-care",
+      "name": "Preventive Dental Care & Sealants",
+      "slug": "preventive-dental-care",
+      "description": "Protective dental sealants, professional fluoride varnishes, and habitual maintenance for long-term oral protection.",
+      "durationMinutes": 30,
+      "optionalPrice": "Contact the clinic for pricing",
+      "isPublished": false,
+      "category": "preventive"
+    }
+  ],
+  "appointments": [],
+  "blockedSlots": [],
+  "holidays": [
+    {
+      "id": "hol-1",
+      "date": "2026-11-01",
+      "name": "Kannada Rajyotsava"
+    },
+    {
+      "id": "hol-2",
+      "date": "2026-10-24",
+      "name": "Deepavali Holiday"
+    }
+  ],
+  "bookingPolicy": {
+    "minNoticeHours": 1,
+    "maxHorizonDays": 30,
+    "slotIntervalMinutes": 30,
+    "cancellationNoticeHours": 4,
+    "autoConfirm": true
+  },
+  "notificationLogs": [],
+  "auditLogs": [
+    {
+      "id": "audit-init",
+      "action": "SYSTEM_INITIALIZATION",
+      "details": "B-Smart Dental Clinic appointment management system initialized with persistent database.",
+      "actor": "System",
+      "timestamp": "2026-10-14T14:55:51.629Z"
+    }
+  ],
+  "enquiries": [],
+  "staffUsers": [
+    {
+      "id": "staff-admin",
+      "email": "admin@bsmartdental.in",
+      "name": "Dr. Srinidhi / Clinic Admin",
+      "role": "admin",
+      "passwordHash": "892226c79371f70a75d55661bc0190145baaf242069288a614d7f66367ee9c52"
+    },
+    {
+      "id": "staff-reception",
+      "email": "reception@bsmartdental.in",
+      "name": "Front Desk Reception",
+      "role": "receptionist",
+      "passwordHash": "5a9d7e97753b8e47142db6aec88bf966702b48c2fc9ac1b5dcd5a8430f75cc9b"
+    }
+  ]
+}

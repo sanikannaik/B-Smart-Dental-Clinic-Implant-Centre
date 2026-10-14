@@ -1,0 +1,6 @@
+{
+  "name": "B-Smart Dental Clinic & Implant Centre",
+  "description": "Premium dental clinic and implant centre in Shivamogga, Karnataka with online appointment booking, verified services, and clinic administration dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
