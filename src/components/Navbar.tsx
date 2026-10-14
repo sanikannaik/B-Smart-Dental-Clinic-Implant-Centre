@@ -64,11 +64,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
             <button
               onClick={onAdminClick}
-              className="inline-flex items-center gap-1 hover:text-white text-teal-300 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 bg-teal-800/90 hover:bg-teal-700 text-white px-2.5 py-0.5 rounded text-xs transition-colors cursor-pointer"
               title="Clinic Staff Portal"
             >
-              <UserCog className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">{t('staffLogin')}</span>
+              <UserCog className="w-3.5 h-3.5 text-teal-300" />
+              <span className="font-semibold">Admin Panel</span>
             </button>
           </div>
         </div>
@@ -106,8 +106,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           ))}
         </nav>
 
-        {/* Zone 3: 1 Primary CTA Button + Language Switcher */}
+        {/* Zone 3: 1 Primary CTA Button + Admin Button + Language Switcher */}
         <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={onAdminClick}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#123E46] bg-[#E8F5F1] hover:bg-[#d5ece4] rounded-lg border border-[#cbe8df] transition-colors cursor-pointer whitespace-nowrap"
+            title="Clinic Management & Appointments Admin"
+          >
+            <UserCog className="w-3.5 h-3.5 text-[#287A9B]" />
+            <span>Admin Panel</span>
+          </button>
+
           <button
             onClick={toggleLanguage}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-[#123E46] hover:bg-[#E8F5F1] rounded-md transition-colors border border-[#CBD5E1] cursor-pointer whitespace-nowrap"

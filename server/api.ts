@@ -8,6 +8,8 @@ import {
   syncCancellationToSupabase,
   syncEnquiryToSupabase,
   testSupabaseConnection,
+  fetchAppointmentsFromSupabase,
+  updateAppointmentInSupabase,
   SUPABASE_PROJECT_ID,
   SUPABASE_URL,
 } from './supabase';
@@ -815,13 +817,31 @@ apiRouter.get('/admin/overview', requireStaffAuth, async (_req: Request, res: Re
   }
 });
 
-// Admin Appointments List (with Search & Filtering)
+// Admin Appointments List (with Search & Filtering, merges Supabase + local DB)
 apiRouter.get('/admin/appointments', requireStaffAuth, async (req: Request, res: Response) => {
   try {
     const { search, status, date, serviceId } = req.query;
     const data = await Database.getData();
 
-    let list = [...data.appointments];
+    // 1. Start with local appointments
+    const appointmentMap = new Map<string, Appointment>();
+    for (const app of data.appointments) {
+      appointmentMap.set(app.publicReference, app);
+    }
+
+    // 2. Query Supabase appointments and merge any newly added remote records
+    try {
+      const supabaseApps = await fetchAppointmentsFromSupabase();
+      for (const sApp of supabaseApps) {
+        if (!appointmentMap.has(sApp.publicReference)) {
+          appointmentMap.set(sApp.publicReference, sApp);
+        }
+      }
+    } catch (sErr) {
+      console.warn('Supabase fetch note during admin appointments query:', sErr);
+    }
+
+    let list = Array.from(appointmentMap.values());
 
     if (status && typeof status === 'string' && status !== 'all') {
       list = list.filter((a) => a.status === status);
@@ -855,25 +875,52 @@ apiRouter.get('/admin/appointments', requireStaffAuth, async (req: Request, res:
   }
 });
 
-// Admin Appointment Update (Status, Internal Note, Reschedule)
+// Admin Appointment Full Edit (Patient details, schedule, service, notes, status)
 apiRouter.patch('/admin/appointments/:id', requireStaffAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { status, internalAdminNote, date, startTime } = req.body;
+    const {
+      status,
+      internalAdminNote,
+      appointmentNote,
+      patientName,
+      patientPhone,
+      patientEmail,
+      serviceId,
+      date,
+      startTime,
+    } = req.body;
     const staffUser = (req as any).staffUser;
 
     const result = await Database.transaction<{ success: boolean; appointment: Appointment }>(async (data) => {
-      const app = data.appointments.find((a) => a.id === id);
-      if (!app) throw new Error('Appointment record not found');
+      let app = data.appointments.find((a) => a.id === id || a.publicReference === id);
+      if (!app) {
+        throw new Error('Appointment record not found');
+      }
 
       const oldStatus = app.status;
+
+      if (patientName && patientName.trim()) app.patientName = patientName.trim();
+      if (patientPhone && patientPhone.trim()) app.patientPhone = patientPhone.trim();
+      if (patientEmail !== undefined) app.patientEmail = patientEmail ? patientEmail.trim() : undefined;
+      if (appointmentNote !== undefined) app.appointmentNote = appointmentNote.trim();
+
+      if (serviceId && serviceId !== app.serviceId) {
+        const newService = data.services.find((s) => s.id === serviceId);
+        if (newService) {
+          app.serviceId = newService.id;
+          app.serviceName = newService.name;
+          const startM = timeToMinutes(app.startTime);
+          app.endTime = minutesToTime(startM + newService.durationMinutes);
+        }
+      }
 
       if (status && status !== oldStatus) {
         app.status = status;
         data.auditLogs.push({
           id: crypto.randomUUID(),
           action: 'STATUS_CHANGED',
-          details: `Appointment ${app.publicReference} changed from ${oldStatus} to ${status} by staff`,
+          details: `Appointment ${app.publicReference} status changed from ${oldStatus} to ${status}`,
           actor: staffUser.name,
           timestamp: new Date().toISOString(),
         });
@@ -884,9 +931,9 @@ apiRouter.patch('/admin/appointments/:id', requireStaffAuth, async (req: Request
       }
 
       if (date && startTime && (date !== app.date || startTime !== app.startTime)) {
+        const prevSchedule = `${app.date} ${app.startTime}`;
         app.date = date;
         app.startTime = startTime;
-        // recalculate end time
         const service = data.services.find((s) => s.id === app.serviceId);
         const dur = service ? service.durationMinutes : 30;
         app.endTime = minutesToTime(timeToMinutes(startTime) + dur);
@@ -894,7 +941,7 @@ apiRouter.patch('/admin/appointments/:id', requireStaffAuth, async (req: Request
         data.auditLogs.push({
           id: crypto.randomUUID(),
           action: 'STAFF_RESCHEDULED',
-          details: `Appointment ${app.publicReference} rescheduled to ${date} at ${startTime} by staff`,
+          details: `Appointment ${app.publicReference} rescheduled from ${prevSchedule} to ${date} ${startTime}`,
           actor: staffUser.name,
           timestamp: new Date().toISOString(),
         });
@@ -906,6 +953,11 @@ apiRouter.patch('/admin/appointments/:id', requireStaffAuth, async (req: Request
         result: { success: true, appointment: app },
         data,
       };
+    });
+
+    // Sync updates to Supabase
+    updateAppointmentInSupabase(result.appointment.id, result.appointment).catch((err) => {
+      console.warn('Failed to sync appointment update to Supabase:', err);
     });
 
     res.json(result);

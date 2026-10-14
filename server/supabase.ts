@@ -209,3 +209,74 @@ export async function syncEnquiryToSupabase(enquiry: Enquiry): Promise<void> {
     console.error('Failed to sync enquiry to Supabase:', err);
   }
 }
+
+// Fetch all appointments directly from Supabase
+export async function fetchAppointmentsFromSupabase(): Promise<Appointment[]> {
+  if (!supabaseClient) return [];
+  try {
+    const { data, error } = await supabaseClient
+      .from('appointments')
+      .select('*')
+      .order('date', { ascending: false });
+
+    if (error) {
+      return [];
+    }
+
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      publicReference: row.public_reference,
+      patientName: row.patient_name,
+      patientPhone: row.patient_phone,
+      patientEmail: row.patient_email || undefined,
+      serviceId: row.service_id,
+      serviceName: row.service_name,
+      dentistId: row.dentist_id || 'dr-srinidhi-bhat',
+      dentistName: row.dentist_name || 'Dr. Srinidhi Bhat',
+      date: row.date,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      status: row.status,
+      appointmentNote: row.appointment_note || undefined,
+      internalAdminNote: row.internal_admin_note || undefined,
+      rescheduleToken: row.reschedule_token || '',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  } catch (err) {
+    console.warn('Supabase query note:', err);
+    return [];
+  }
+}
+
+// Update appointment in Supabase
+export async function updateAppointmentInSupabase(
+  id: string,
+  updates: Partial<Appointment>
+): Promise<void> {
+  if (!supabaseClient) return;
+  try {
+    const rowUpdates: any = {
+      updated_at: new Date().toISOString(),
+    };
+    if (updates.patientName !== undefined) rowUpdates.patient_name = updates.patientName;
+    if (updates.patientPhone !== undefined) rowUpdates.patient_phone = updates.patientPhone;
+    if (updates.patientEmail !== undefined) rowUpdates.patient_email = updates.patientEmail;
+    if (updates.serviceId !== undefined) rowUpdates.service_id = updates.serviceId;
+    if (updates.serviceName !== undefined) rowUpdates.service_name = updates.serviceName;
+    if (updates.date !== undefined) rowUpdates.date = updates.date;
+    if (updates.startTime !== undefined) rowUpdates.start_time = updates.startTime;
+    if (updates.endTime !== undefined) rowUpdates.end_time = updates.endTime;
+    if (updates.status !== undefined) rowUpdates.status = updates.status;
+    if (updates.appointmentNote !== undefined) rowUpdates.appointment_note = updates.appointmentNote;
+    if (updates.internalAdminNote !== undefined) rowUpdates.internal_admin_note = updates.internalAdminNote;
+
+    await supabaseClient
+      .from('appointments')
+      .update(rowUpdates)
+      .eq('id', id);
+  } catch (err) {
+    console.warn('Failed to update appointment in Supabase:', err);
+  }
+}
+

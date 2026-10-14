@@ -167,6 +167,12 @@ export const clinicApi = {
     return request<{ appointments: Appointment[] }>(`/admin/appointments?${query.toString()}`);
   },
 
+  updateAppointment: (id: string, updates: Partial<Appointment>) =>
+    request<{ success: boolean; appointment: Appointment }>(`/admin/appointments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }),
+
   updateAppointmentStatus: (id: string, updates: { status?: string; internalAdminNote?: string; date?: string; startTime?: string }) =>
     request<{ success: boolean; appointment: Appointment }>(`/admin/appointments/${id}`, {
       method: 'PATCH',

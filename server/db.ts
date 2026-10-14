@@ -282,47 +282,125 @@ class AsyncMutex {
   }
 }
 
+import { supabaseClient } from './supabase.ts';
+
 const mutex = new AsyncMutex();
 
 export class Database {
   private static cachedData: DatabaseSchema | null = null;
+  private static isInitialized = false;
 
   public static async init(): Promise<void> {
-    const dir = path.dirname(DATA_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    if (this.isInitialized && this.cachedData) return;
+
+    // Start with clean initial schema
+    this.cachedData = JSON.parse(JSON.stringify(INITIAL_DATA));
+
+    // Try reading local file cache if writable environment
+    try {
+      const dir = path.dirname(DATA_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      if (fs.existsSync(DATA_FILE)) {
+        const raw = await fs.promises.readFile(DATA_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        this.cachedData = { ...this.cachedData, ...parsed };
+      } else if (this.cachedData) {
+        await this.save(this.cachedData);
+      }
+    } catch (err: any) {
+      console.warn('Local disk storage unavailable (serverless / read-only filesystem):', err.message);
     }
 
-    if (!fs.existsSync(DATA_FILE)) {
-      await this.save(INITIAL_DATA);
-    } else {
-      try {
-        const raw = await fs.promises.readFile(DATA_FILE, 'utf-8');
-        this.cachedData = JSON.parse(raw);
-      } catch (err) {
-        console.error('Error reading database file, resetting to initial:', err);
-        await this.save(INITIAL_DATA);
+    // Hydrate directly from live Supabase PostgreSQL tables if available
+    await this.hydrateFromSupabase();
+
+    this.isInitialized = true;
+  }
+
+  // Hydrate memory cache with persistent records from Supabase
+  public static async hydrateFromSupabase(): Promise<void> {
+    if (!supabaseClient || !this.cachedData) return;
+
+    try {
+      // 1. Fetch live appointments from Supabase
+      const { data: supaApps, error: appErr } = await supabaseClient
+        .from('appointments')
+        .select('*');
+
+      if (!appErr && Array.isArray(supaApps)) {
+        this.cachedData.appointments = supaApps.map((r: any) => ({
+          id: r.id,
+          publicReference: r.public_reference,
+          patientName: r.patient_name,
+          patientPhone: r.patient_phone,
+          patientEmail: r.patient_email || undefined,
+          serviceId: r.service_id,
+          serviceName: r.service_name,
+          dentistId: r.dentist_id || 'dr-srinidhi-bhat',
+          dentistName: r.dentist_name || 'Dr. Srinidhi Bhat',
+          date: r.date,
+          startTime: r.start_time,
+          endTime: r.end_time,
+          status: r.status,
+          appointmentNote: r.appointment_note || undefined,
+          internalAdminNote: r.internal_admin_note || undefined,
+          rescheduleToken: r.reschedule_token || '',
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        }));
       }
+
+      // 2. Fetch live enquiries from Supabase
+      const { data: supaEnquiries, error: enqErr } = await supabaseClient
+        .from('enquiries')
+        .select('*');
+
+      if (!enqErr && Array.isArray(supaEnquiries)) {
+        this.cachedData.enquiries = supaEnquiries.map((e: any) => ({
+          id: e.id,
+          name: e.name,
+          phone: e.phone,
+          email: e.email || undefined,
+          subject: e.subject || 'General Enquiry',
+          message: e.message,
+          status: e.status || 'new',
+          createdAt: e.created_at,
+        }));
+      }
+    } catch (err: any) {
+      console.warn('Supabase live hydration skipped:', err.message);
     }
   }
 
   private static async load(): Promise<DatabaseSchema> {
-    if (this.cachedData) return this.cachedData;
-    await this.init();
+    if (!this.cachedData) {
+      await this.init();
+    }
     return this.cachedData!;
   }
 
   private static async save(data: DatabaseSchema): Promise<void> {
     this.cachedData = data;
-    const tempFile = `${DATA_FILE}.tmp.${Date.now()}`;
-    await fs.promises.writeFile(tempFile, JSON.stringify(data, null, 2), 'utf-8');
-    await fs.promises.rename(tempFile, DATA_FILE);
+    try {
+      const tempFile = `${DATA_FILE}.tmp.${Date.now()}`;
+      await fs.promises.writeFile(tempFile, JSON.stringify(data, null, 2), 'utf-8');
+      await fs.promises.rename(tempFile, DATA_FILE);
+    } catch (err: any) {
+      // Gracefully handle read-only filesystems in serverless cloud environments
+      // console.warn('Disk save skipped (read-only serverless environment):', err.message);
+    }
   }
 
   // Mutex-protected transaction executor
   public static async transaction<T>(callback: (data: DatabaseSchema) => Promise<{ result: T; data: DatabaseSchema }>): Promise<T> {
     const release = await mutex.acquire();
     try {
+      // Re-hydrate from Supabase to guarantee absolute latest state before transaction
+      await this.hydrateFromSupabase();
+
       const currentData = await this.load();
       // Deep clone to ensure rollback capability on error
       const cloned = JSON.parse(JSON.stringify(currentData)) as DatabaseSchema;
@@ -335,6 +413,7 @@ export class Database {
   }
 
   public static async getData(): Promise<DatabaseSchema> {
+    await this.hydrateFromSupabase();
     return await this.load();
   }
 }
