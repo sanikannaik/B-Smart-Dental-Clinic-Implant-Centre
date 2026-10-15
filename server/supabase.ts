@@ -25,6 +25,7 @@ export async function testSupabaseConnection(): Promise<{
     appointments: boolean;
     enquiries: boolean;
     services: boolean;
+    staff_users: boolean;
   };
   error?: string;
   instructionsNeeded?: boolean;
@@ -34,7 +35,7 @@ export async function testSupabaseConnection(): Promise<{
       connected: false,
       projectUrl: SUPABASE_URL,
       projectId: SUPABASE_PROJECT_ID,
-      tablesFound: { appointments: false, enquiries: false, services: false },
+      tablesFound: { appointments: false, enquiries: false, services: false, staff_users: false },
       error: 'Supabase client not initialized.',
       instructionsNeeded: true,
     };
@@ -44,6 +45,7 @@ export async function testSupabaseConnection(): Promise<{
     appointments: false,
     enquiries: false,
     services: false,
+    staff_users: false,
   };
 
   let generalError: string | undefined = undefined;
@@ -68,6 +70,11 @@ export async function testSupabaseConnection(): Promise<{
     const { error: srvErr } = await supabaseClient.from('services').select('id').limit(1);
     if (!srvErr) {
       tablesFound.services = true;
+    }
+
+    const { error: staffErr } = await supabaseClient.from('staff_users').select('id').limit(1);
+    if (!staffErr) {
+      tablesFound.staff_users = true;
     }
 
     return {
@@ -279,4 +286,96 @@ export async function updateAppointmentInSupabase(
     console.warn('Failed to update appointment in Supabase:', err);
   }
 }
+
+// Fetch staff user by email (case-insensitive) from Supabase
+export async function findStaffUserByEmail(email: string): Promise<{
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  password_hash: string;
+} | null> {
+  if (!supabaseClient) return null;
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    const { data, error } = await supabaseClient
+      .from('staff_users')
+      .select('*')
+      .ilike('email', cleanEmail)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
+// Count total staff users in Supabase
+export async function countStaffUsersInSupabase(): Promise<number> {
+  if (!supabaseClient) return 0;
+  try {
+    const { count, error } = await supabaseClient
+      .from('staff_users')
+      .select('*', { count: 'exact', head: true });
+
+    if (error || count === null) return 0;
+    return count;
+  } catch {
+    return 0;
+  }
+}
+
+// Upsert a staff user in Supabase
+export async function upsertStaffUserInSupabase(user: {
+  id?: string;
+  email: string;
+  name: string;
+  role: string;
+  password_hash: string;
+}): Promise<{ success: boolean; error?: string }> {
+  if (!supabaseClient) {
+    return { success: false, error: 'Supabase client not initialized' };
+  }
+  try {
+    const row: any = {
+      email: user.email.trim().toLowerCase(),
+      name: user.name.trim(),
+      role: user.role || 'admin',
+      password_hash: user.password_hash,
+      updated_at: new Date().toISOString(),
+    };
+    if (user.id) {
+      row.id = user.id;
+    }
+
+    const { error } = await supabaseClient
+      .from('staff_users')
+      .upsert(row, { onConflict: 'email' });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Fetch all staff users (sanitized, no password hash)
+export async function fetchStaffUsersList(): Promise<{ id: string; email: string; name: string; role: string; created_at: string }[]> {
+  if (!supabaseClient) return [];
+  try {
+    const { data, error } = await supabaseClient
+      .from('staff_users')
+      .select('id, email, name, role, created_at')
+      .order('created_at', { ascending: true });
+
+    if (error || !data) return [];
+    return data;
+  } catch {
+    return [];
+  }
+}
+
 

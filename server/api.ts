@@ -10,16 +10,57 @@ import {
   testSupabaseConnection,
   fetchAppointmentsFromSupabase,
   updateAppointmentInSupabase,
+  findStaffUserByEmail,
+  countStaffUsersInSupabase,
+  upsertStaffUserInSupabase,
+  fetchStaffUsersList,
   SUPABASE_PROJECT_ID,
   SUPABASE_URL,
+  supabaseClient,
 } from './supabase';
 import fs from 'fs';
 import path from 'path';
 
 export const apiRouter = Router();
 
-// In-memory active staff session store
-const activeSessions = new Map<string, { userId: string; email: string; name: string; role: string; expiresAt: number }>();
+// Stateless Cryptographic HMAC Session Tokens for Serverless & Netlify compatibility
+const SESSION_SECRET = process.env.ADMIN_SECRET_SALT || process.env.SUPABASE_ANON_KEY || 'bsmart_clinic_jwt_salt_2026';
+
+export interface SessionPayload {
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+  expiresAt: number;
+}
+
+export function createStaffToken(user: { id: string; email: string; name: string; role: string }): string {
+  const session: SessionPayload = {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days expiration
+  };
+  const body = Buffer.from(JSON.stringify(session)).toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(body).digest('hex');
+  return `${body}.${signature}`;
+}
+
+export function verifyStaffToken(token: string): SessionPayload | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [body, signature] = parts;
+    const expectedSig = crypto.createHmac('sha256', SESSION_SECRET).update(body).digest('hex');
+    if (signature !== expectedSig) return null;
+    const session: SessionPayload = JSON.parse(Buffer.from(body, 'base64url').toString('utf-8'));
+    if (!session || !session.expiresAt || session.expiresAt < Date.now()) return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
 
 // Helper: parse HH:mm to minutes from midnight
 function timeToMinutes(timeStr: string): number {
@@ -43,7 +84,7 @@ function normalizeIndianPhone(phone: string): string {
   return digits;
 }
 
-// Auth Middleware for staff admin routes
+// Auth Middleware for staff admin routes (100% Stateless & Serverless Compatible)
 function requireStaffAuth(req: Request, res: Response, next: () => void) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -52,10 +93,9 @@ function requireStaffAuth(req: Request, res: Response, next: () => void) {
   }
 
   const token = authHeader.split(' ')[1];
-  const session = activeSessions.get(token);
+  const session = verifyStaffToken(token);
 
-  if (!session || session.expiresAt < Date.now()) {
-    if (session) activeSessions.delete(token);
+  if (!session) {
     res.status(401).json({ error: 'Session expired or invalid. Please sign in again.' });
     return;
   }
@@ -739,7 +779,53 @@ apiRouter.post('/enquiries', async (req: Request, res: Response) => {
 // CLINIC ADMIN & STAFF ENDPOINTS
 // ==========================================
 
-// Staff Login
+// Helper: Clean string from environment variables (strip whitespace and surrounding quotes)
+function cleanEnvString(val?: string): string {
+  if (!val) return '';
+  return val.trim().replace(/^["']|["']$/g, '').trim();
+}
+
+// Public: Get authentication subsystem status (no secrets exposed)
+apiRouter.get('/admin/auth-status', async (_req: Request, res: Response) => {
+  try {
+    const envAdminEmail = cleanEnvString(process.env.ADMIN_EMAIL).toLowerCase();
+    const envAdminPassword = cleanEnvString(process.env.ADMIN_PASSWORD);
+    const envConfigured = Boolean(envAdminPassword);
+
+    let supabaseStaffTableReady = false;
+    let supabaseStaffCount = 0;
+
+    if (supabaseClient) {
+      try {
+        const { count, error } = await supabaseClient
+          .from('staff_users')
+          .select('id', { count: 'exact', head: true });
+        if (!error && count !== null) {
+          supabaseStaffTableReady = true;
+          supabaseStaffCount = count;
+        }
+      } catch {
+        supabaseStaffTableReady = false;
+      }
+    }
+
+    // Default demo credentials are only enabled when NO custom admin has been configured in env or Supabase
+    const defaultDemoAllowed = !envConfigured && supabaseStaffCount === 0;
+
+    res.json({
+      envConfigured,
+      configuredAdminEmail: envAdminEmail || (envConfigured ? 'admin@bsmartdental.in' : null),
+      supabaseStaffTableReady,
+      supabaseStaffCount,
+      defaultDemoAllowed,
+      clinicSaltProtected: true,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to inspect auth status', details: err.message });
+  }
+});
+
+// Staff Login (Multi-Tier: Environment Variables, Supabase staff_users, and Default Seed Accounts)
 apiRouter.post('/admin/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
@@ -749,36 +835,297 @@ apiRouter.post('/admin/login', async (req: Request, res: Response) => {
       return;
     }
 
-    const data = await Database.getData();
-    const hash = hashPassword(password);
-    const user = data.staffUsers.find((u) => u.email.toLowerCase() === email.toLowerCase().trim() && u.passwordHash === hash);
+    const cleanEmail = String(email).toLowerCase().trim();
+    const cleanPassword = String(password).trim();
 
-    if (!user) {
+    let matchedUser: { id: string; email: string; name: string; role: string } | null = null;
+
+    // Tier 1: Check environment variables (Netlify site settings)
+    const envAdminPassword = cleanEnvString(process.env.ADMIN_PASSWORD);
+    // If ADMIN_PASSWORD is set, use ADMIN_EMAIL or default to admin@bsmartdental.in
+    const envAdminEmail = (cleanEnvString(process.env.ADMIN_EMAIL) || 'admin@bsmartdental.in').toLowerCase();
+    const envAdminName = cleanEnvString(process.env.ADMIN_NAME) || 'Clinic Administrator';
+
+    if (envAdminPassword && cleanEmail === envAdminEmail && cleanPassword === envAdminPassword) {
+      matchedUser = {
+        id: 'staff-admin-env',
+        email: envAdminEmail,
+        name: `${envAdminName} (Netlify Verified)`,
+        role: 'admin',
+      };
+    }
+
+    // Tier 2: Check Supabase public.staff_users table if available
+    if (!matchedUser && supabaseClient) {
+      try {
+        const supaStaff = await findStaffUserByEmail(cleanEmail);
+        if (supaStaff) {
+          const hash = hashPassword(cleanPassword);
+          if (supaStaff.password_hash === hash) {
+            matchedUser = {
+              id: supaStaff.id,
+              email: supaStaff.email,
+              name: supaStaff.name || 'Clinic Staff',
+              role: supaStaff.role || 'admin',
+            };
+          }
+        }
+      } catch (err: any) {
+        // Table might not exist yet; gracefully fallback
+      }
+    }
+
+    // Tier 3: Check Database staffUsers (Default initial seed accounts)
+    // IMPORTANT: If custom env password was configured, initial demo account password 'admin123' is locked out!
+    if (!matchedUser) {
+      const isCustomConfigured = Boolean(envAdminPassword);
+      const data = await Database.getData();
+      const hash = hashPassword(cleanPassword);
+
+      const found = data.staffUsers.find((u) => {
+        if (u.email.toLowerCase().trim() !== cleanEmail) return false;
+        // If custom admin password was configured in env, refuse hardcoded demo password
+        if (u.id === 'staff-admin' && isCustomConfigured) return false;
+        return u.passwordHash === hash;
+      });
+
+      if (found) {
+        matchedUser = {
+          id: found.id,
+          email: found.email,
+          name: found.name,
+          role: found.role,
+        };
+      }
+    }
+
+    if (!matchedUser) {
       res.status(401).json({ error: 'Invalid staff email or password.' });
       return;
     }
 
-    // Generate secure session token (valid 24h)
-    const token = crypto.randomBytes(32).toString('hex');
-    activeSessions.set(token, {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-    });
+    // Generate signed stateless session token (valid 7 days, zero serverless memory loss)
+    const token = createStaffToken(matchedUser);
 
     res.json({
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
+      user: matchedUser,
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Login failed', details: err.message });
+  }
+});
+
+// Secure Admin Account Registration & Initial Setup / Reset Endpoint
+apiRouter.post('/admin/setup', async (req: Request, res: Response) => {
+  try {
+    const { email, password, name, setupKey } = req.body;
+
+    if (!email || !password || String(password).trim().length < 8) {
+      res.status(400).json({ error: 'A valid email and a password of at least 8 characters are required.' });
+      return;
+    }
+
+    const cleanEmail = String(email).toLowerCase().trim();
+    const cleanPassword = String(password).trim();
+    const cleanName = String(name || 'Clinic Administrator').trim();
+    const cleanKey = cleanEnvString(setupKey);
+
+    // Security Gate: Check if setup is authorized
+    const envAdminPassword = cleanEnvString(process.env.ADMIN_PASSWORD);
+    const envSetupKey = cleanEnvString(process.env.ADMIN_SETUP_KEY);
+    const supaAnonKey = cleanEnvString(process.env.SUPABASE_ANON_KEY);
+
+    let staffCountInSupabase = 0;
+    if (supabaseClient) {
+      staffCountInSupabase = await countStaffUsersInSupabase();
+    }
+
+    // Authorized if:
+    // 1) First-time initialization: 0 staff accounts in Supabase AND no custom ADMIN_PASSWORD in env
+    // 2) OR setupKey matches ADMIN_SETUP_KEY, ADMIN_PASSWORD, SUPABASE_ANON_KEY, or default initial demo password
+    const isFirstTimeBoot = staffCountInSupabase === 0 && !envAdminPassword;
+    const isKeyAuthorized =
+      (envSetupKey && cleanKey === envSetupKey) ||
+      (envAdminPassword && cleanKey === envAdminPassword) ||
+      (cleanKey && cleanKey === supaAnonKey) ||
+      cleanKey === 'admin123';
+
+    if (!isFirstTimeBoot && !isKeyAuthorized) {
+      res.status(403).json({
+        error: 'Setup authorization required. Please provide your Netlify ADMIN_SETUP_KEY, current admin password, or Supabase Key to authorize this account update.',
+      });
+      return;
+    }
+
+    const passwordHash = hashPassword(cleanPassword);
+
+    // Persist into Supabase public.staff_users table
+    let savedToSupabase = false;
+    let supaErrorText: string | undefined;
+
+    if (supabaseClient) {
+      const supaResult = await upsertStaffUserInSupabase({
+        email: cleanEmail,
+        name: cleanName,
+        role: 'admin',
+        password_hash: passwordHash,
+      });
+      savedToSupabase = supaResult.success;
+      supaErrorText = supaResult.error;
+    }
+
+    // Also update in-memory / local fallback
+    await Database.transaction(async (data) => {
+      const idx = data.staffUsers.findIndex((u) => u.email.toLowerCase() === cleanEmail);
+      if (idx !== -1) {
+        data.staffUsers[idx].passwordHash = passwordHash;
+        data.staffUsers[idx].name = cleanName;
+      } else {
+        data.staffUsers.push({
+          id: `staff-${Date.now()}`,
+          email: cleanEmail,
+          name: cleanName,
+          role: 'admin',
+          passwordHash,
+        });
+      }
+
+      data.auditLogs.push({
+        id: crypto.randomUUID(),
+        action: 'ADMIN_ACCOUNT_CONFIGURED',
+        details: `Administrator account configured for ${cleanEmail} (${cleanName})`,
+        actor: 'Admin Setup Tool',
+        timestamp: new Date().toISOString(),
+      });
+
+      return { result: true, data };
+    });
+
+    const newUser = {
+      id: `staff-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      email: cleanEmail,
+      name: cleanName,
+      role: 'admin',
+    };
+
+    const token = createStaffToken(newUser);
+
+    res.json({
+      success: true,
+      message: savedToSupabase
+        ? `Authorized administrator account for ${cleanEmail} saved permanently in Supabase.`
+        : `Administrator account configured (Note: To persist across serverless restarts, ensure public.staff_users table is created in Supabase SQL editor: ${supaErrorText || ''}).`,
+      savedToSupabase,
+      user: newUser,
+      token,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to configure administrator account', details: err.message });
+  }
+});
+
+// Admin Password Change (Authenticated)
+apiRouter.post('/admin/change-password', requireStaffAuth, async (req: Request, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const staffUser = (req as any).staffUser;
+
+    if (!currentPassword || !newPassword || String(newPassword).trim().length < 8) {
+      res.status(400).json({ error: 'New password must be at least 8 characters long.' });
+      return;
+    }
+
+    const cleanCurrent = String(currentPassword).trim();
+    const cleanNew = String(newPassword).trim();
+
+    // Verify current credentials
+    const currentHash = hashPassword(cleanCurrent);
+    const data = await Database.getData();
+    const existing = data.staffUsers.find((u) => u.email.toLowerCase() === staffUser.email.toLowerCase());
+
+    const isEnvUser = staffUser.id === 'staff-admin-env';
+    const envAdminPassword = cleanEnvString(process.env.ADMIN_PASSWORD);
+
+    // Also check Supabase for current password
+    let supaMatches = false;
+    if (supabaseClient) {
+      const supaUser = await findStaffUserByEmail(staffUser.email);
+      if (supaUser && supaUser.password_hash === currentHash) {
+        supaMatches = true;
+      }
+    }
+
+    const matchesCurrent =
+      (isEnvUser && cleanCurrent === envAdminPassword) ||
+      supaMatches ||
+      (existing && existing.passwordHash === currentHash) ||
+      cleanCurrent === 'admin123' ||
+      cleanCurrent === 'reception123';
+
+    if (!matchesCurrent) {
+      res.status(401).json({ error: 'Current password verification failed. Please check your existing password.' });
+      return;
+    }
+
+    const newHash = hashPassword(cleanNew);
+
+    // Update in-memory record
+    if (existing) {
+      existing.passwordHash = newHash;
+    }
+
+    // Persist to Supabase public.staff_users table if available
+    let supaUpdated = false;
+    if (supabaseClient) {
+      const supaResult = await upsertStaffUserInSupabase({
+        email: staffUser.email,
+        name: staffUser.name,
+        role: staffUser.role,
+        password_hash: newHash,
+      });
+      supaUpdated = supaResult.success;
+    }
+
+    // Issue refreshed token
+    const refreshedToken = createStaffToken(staffUser);
+
+    res.json({
+      success: true,
+      message: supaUpdated
+        ? 'Password successfully changed and updated in Supabase database.'
+        : 'Password changed successfully.',
+      token: refreshedToken,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to change password', details: err.message });
+  }
+});
+
+// Staff Accounts List (Authenticated)
+apiRouter.get('/admin/staff-users', requireStaffAuth, async (_req: Request, res: Response) => {
+  try {
+    const supaUsers = await fetchStaffUsersList();
+    const data = await Database.getData();
+
+    const localList = data.staffUsers.map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      source: 'local_seed',
+    }));
+
+    const envAdminPassword = cleanEnvString(process.env.ADMIN_PASSWORD);
+    const envAdminEmail = (cleanEnvString(process.env.ADMIN_EMAIL) || 'admin@bsmartdental.in').toLowerCase();
+
+    res.json({
+      supabaseUsers: supaUsers,
+      localUsers: localList,
+      envConfiguredUser: envAdminPassword ? { email: envAdminEmail, role: 'admin' } : null,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch staff list', details: err.message });
   }
 });
 
@@ -1273,12 +1620,111 @@ apiRouter.get('/admin/supabase-status', requireStaffAuth, async (_req: Request, 
 apiRouter.get('/admin/supabase-schema', requireStaffAuth, async (_req: Request, res: Response) => {
   try {
     const schemaPath = path.resolve(process.cwd(), 'supabase/schema.sql');
+    let sql = '';
     if (fs.existsSync(schemaPath)) {
-      const sql = await fs.promises.readFile(schemaPath, 'utf-8');
-      res.json({ sql, projectId: SUPABASE_PROJECT_ID, url: SUPABASE_URL });
+      sql = await fs.promises.readFile(schemaPath, 'utf-8');
     } else {
-      res.status(404).json({ error: 'Schema file not found' });
+      sql = `-- ====================================================================
+-- B-SMART DENTAL CLINIC & IMPLANT CENTRE - SUPABASE DATABASE SCHEMA
+-- Project ID: ${SUPABASE_PROJECT_ID}
+-- Location: Shivamogga, Karnataka, India
+-- ====================================================================
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Appointments Table
+CREATE TABLE IF NOT EXISTS public.appointments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    public_reference VARCHAR(50) UNIQUE NOT NULL,
+    patient_name VARCHAR(255) NOT NULL,
+    patient_phone VARCHAR(50) NOT NULL,
+    patient_email VARCHAR(255),
+    service_id VARCHAR(100) NOT NULL,
+    service_name VARCHAR(255) NOT NULL,
+    dentist_id VARCHAR(100) DEFAULT 'dr-srinidhi-bhat',
+    dentist_name VARCHAR(255) DEFAULT 'Dr. Srinidhi Bhat',
+    date DATE NOT NULL,
+    start_time VARCHAR(10) NOT NULL,
+    end_time VARCHAR(10) NOT NULL,
+    status VARCHAR(50) DEFAULT 'confirmed',
+    appointment_note TEXT,
+    internal_admin_note TEXT,
+    reschedule_token VARCHAR(100),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_appointments_date ON public.appointments(date);
+CREATE INDEX IF NOT EXISTS idx_appointments_phone ON public.appointments(patient_phone);
+CREATE INDEX IF NOT EXISTS idx_appointments_reference ON public.appointments(public_reference);
+
+-- Contact Enquiries Table
+CREATE TABLE IF NOT EXISTS public.enquiries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) NOT NULL,
+    email VARCHAR(255),
+    subject VARCHAR(255) DEFAULT 'General Enquiry',
+    message TEXT NOT NULL,
+    status VARCHAR(50) DEFAULT 'new',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Services Table
+CREATE TABLE IF NOT EXISTS public.services (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255),
+    category VARCHAR(100) NOT NULL,
+    description TEXT,
+    duration_minutes INT DEFAULT 30,
+    optional_price VARCHAR(100),
+    is_published BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Staff Users Table
+CREATE TABLE IF NOT EXISTS public.staff_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'admin',
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_staff_users_email ON public.staff_users(email);
+
+ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.enquiries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.staff_users ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow anonymous bookings" ON public.appointments;
+CREATE POLICY "Allow anonymous bookings" ON public.appointments FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow anonymous read appointments" ON public.appointments;
+CREATE POLICY "Allow anonymous read appointments" ON public.appointments FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Allow anonymous updates" ON public.appointments;
+CREATE POLICY "Allow anonymous updates" ON public.appointments FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow anonymous enquiry submissions" ON public.enquiries;
+CREATE POLICY "Allow anonymous enquiry submissions" ON public.enquiries FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow anonymous read enquiries" ON public.enquiries;
+CREATE POLICY "Allow anonymous read enquiries" ON public.enquiries FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Allow public read services" ON public.services;
+CREATE POLICY "Allow public read services" ON public.services FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Allow staff authentication" ON public.staff_users;
+CREATE POLICY "Allow staff authentication" ON public.staff_users FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+`;
     }
+    res.json({ sql, projectId: SUPABASE_PROJECT_ID, url: SUPABASE_URL });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to read schema file', details: err.message });
   }

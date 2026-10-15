@@ -216,7 +216,137 @@
       "category": "preventive"
     }
   ],
-  "appointments": [],
+  "appointments": [
+    {
+      "id": "de904f12-ac41-4eb0-9b56-6b5514cb0d60",
+      "publicReference": "BSMART-26BB04",
+      "patientName": "sanika",
+      "patientPhone": "6363835760",
+      "patientEmail": "sanikannaiksanikanaik@gmail.com",
+      "serviceId": "service-general-consult",
+      "serviceName": "General Dental Consultation",
+      "dentistId": "dr-srinidhi-bhat",
+      "dentistName": "Dr. Srinidhi Bhat",
+      "date": "2026-10-17",
+      "startTime": "10:30",
+      "endTime": "11:00",
+      "status": "confirmed",
+      "appointmentNote": "Root canal surgery",
+      "rescheduleToken": "c674c0cceda340b666461b46b17cf68c",
+      "createdAt": "2026-10-14T15:28:58.455+00:00",
+      "updatedAt": "2026-10-14T15:28:58.455+00:00"
+    },
+    {
+      "id": "7c0580da-351d-4b2c-b524-b44418f43439",
+      "publicReference": "BSMART-2604EB",
+      "patientName": "sanika",
+      "patientPhone": "6363835760",
+      "patientEmail": "sanikannaiksanikanaik@gmail.com",
+      "serviceId": "service-general-consult",
+      "serviceName": "General Dental Consultation",
+      "dentistId": "dr-srinidhi-bhat",
+      "dentistName": "Dr. Srinidhi Bhat",
+      "date": "2026-10-20",
+      "startTime": "18:30",
+      "endTime": "19:00",
+      "status": "confirmed",
+      "appointmentNote": "Root canal surgery",
+      "rescheduleToken": "a8bb522959444bf4009869ba1a39f46f",
+      "createdAt": "2026-10-14T15:31:46.528+00:00",
+      "updatedAt": "2026-10-14T15:31:46.528+00:00"
+    },
+    {
+      "id": "a0000000-0000-0000-0000-000000000001",
+      "publicReference": "TEST-VERIFY",
+      "patientName": "Connection Test",
+      "patientPhone": "9999999999",
+      "serviceId": "service-general-consult",
+      "serviceName": "General Dental Consultation",
+      "dentistId": "dr-srinidhi-bhat",
+      "dentistName": "Dr. Srinidhi Bhat",
+      "date": "2026-10-25",
+      "startTime": "11:00",
+      "endTime": "11:30",
+      "status": "confirmed",
+      "rescheduleToken": "testtoken123",
+      "createdAt": "2026-10-14T15:44:16.25+00:00",
+      "updatedAt": "2026-10-14T15:44:16.251+00:00"
+    },
+    {
+      "id": "59abc730-0ea3-4227-b848-c78528979d7e",
+      "publicReference": "BSMART-26B517",
+      "patientName": "Netlify Test Patient",
+      "patientPhone": "9482584402",
+      "serviceId": "service-general-consult",
+      "serviceName": "General Dental Consultation",
+      "dentistId": "dr-srinidhi-bhat",
+      "dentistName": "Dr. Srinidhi Bhat",
+      "date": "2026-10-21",
+      "startTime": "11:30",
+      "endTime": "12:00",
+      "status": "confirmed",
+      "rescheduleToken": "8d23396eccb82a781da47d7dda106dc9",
+      "createdAt": "2026-10-14T16:30:07.34+00:00",
+      "updatedAt": "2026-10-14T16:30:07.34+00:00"
+    },
+    {
+      "id": "643e6a97-3638-4ff3-b068-285562bd7b64",
+      "publicReference": "BSMART-265AAF",
+      "patientName": "sanika",
+      "patientPhone": "6876753670",
+      "patientEmail": "sanikannaiksanikanaik@gmail.com",
+      "serviceId": "service-general-consult",
+      "serviceName": "General Dental Consultation",
+      "dentistId": "dr-srinidhi-bhat",
+      "dentistName": "Dr. Srinidhi Bhat",
+      "date": "2026-10-17",
+      "startTime": "11:00",
+      "endTime": "11:30",
+      "status": "confirmed",
+      "appointmentNote": "root canal sigereon",
+      "rescheduleToken": "d4d490ba818ed9fb967aa401e9a6f6b2",
+      "createdAt": "2026-10-14T16:43:03.87+00:00",
+      "updatedAt": "2026-10-14T16:43:03.87+00:00"
+    },
+    {
+      "id": "183e559d-f81c-4174-bdbd-a7afddd0d9cf",
+      "publicReference": "BSMART-260D58",
+      "patientName": "SANIKA",
+      "patientPhone": "6849295209",
+      "patientEmail": "sanikannaiksanikanaik@gmail.com",
+      "serviceId": "service-general-consult",
+      "serviceName": "General Dental Consultation",
+      "dentistId": "dr-srinidhi-bhat",
+      "dentistName": "Dr. Srinidhi Bhat",
+      "date": "2026-10-17",
+      "startTime": "17:00",
+      "endTime": "17:30",
+      "status": "confirmed",
+      "appointmentNote": "ROOT CANAL SURGERY",
+      "rescheduleToken": "6bb134fee6559375bb8c9fa1b90bc6fa",
+      "createdAt": "2026-10-15T08:00:22.457+00:00",
+      "updatedAt": "2026-10-15T08:00:22.457+00:00"
+    },
+    {
+      "id": "a7b7e5b2-04f4-44b6-974a-babd3be914fd",
+      "publicReference": "BSMART-26F68A",
+      "patientName": "SANIKA",
+      "patientPhone": "6849295209",
+      "patientEmail": "sanikannaiksanikanaik@gmail.com",
+      "serviceId": "service-general-consult",
+      "serviceName": "General Dental Consultation",
+      "dentistId": "dr-srinidhi-bhat",
+      "dentistName": "Dr. Srinidhi Bhat",
+      "date": "2026-10-17",
+      "startTime": "11:30",
+      "endTime": "12:00",
+      "status": "confirmed",
+      "appointmentNote": "root canal surgery",
+      "rescheduleToken": "a1a8474c0eca7c6782974df2e1145a35",
+      "createdAt": "2026-10-15T08:06:49.24+00:00",
+      "updatedAt": "2026-10-15T08:06:49.24+00:00"
+    }
+  ],
   "blockedSlots": [],
   "holidays": [
     {
@@ -237,7 +367,28 @@
     "cancellationNoticeHours": 4,
     "autoConfirm": true
   },
-  "notificationLogs": [],
+  "notificationLogs": [
+    {
+      "id": "ff6eb14c-28db-46c8-8bc4-c5a8fb36125f",
+      "appointmentId": "183e559d-f81c-4174-bdbd-a7afddd0d9cf",
+      "publicReference": "BSMART-260D58",
+      "type": "SMS",
+      "recipient": "+916849295209",
+      "status": "Logged",
+      "details": "Template queued: \"B-Smart Dental Clinic: Appointment BSMART-260D58 scheduled for 2026-10-17 at 17:00. Address: Savalanga Rd, Gandhi Nagar, Shivamogga. Call +91 94825 84402.\"",
+      "createdAt": "2026-10-15T08:00:22.457Z"
+    },
+    {
+      "id": "ed2e3fd8-745e-448e-8057-36aaa2964bdd",
+      "appointmentId": "183e559d-f81c-4174-bdbd-a7afddd0d9cf",
+      "publicReference": "BSMART-260D58",
+      "type": "Email",
+      "recipient": "sanikannaiksanikanaik@gmail.com",
+      "status": "Logged",
+      "details": "Confirmation email queued to sanikannaiksanikanaik@gmail.com",
+      "createdAt": "2026-10-15T08:00:22.457Z"
+    }
+  ],
   "auditLogs": [
     {
       "id": "audit-init",
@@ -245,6 +396,20 @@
       "details": "B-Smart Dental Clinic appointment management system initialized with persistent database.",
       "actor": "System",
       "timestamp": "2026-10-14T14:55:51.629Z"
+    },
+    {
+      "id": "bdff78fa-bbee-4ea3-9276-14fc6056ea8f",
+      "action": "APPOINTMENT_CREATED",
+      "details": "New confirmed booking BSMART-260D58 for SANIKA on 2026-10-17 at 17:00 (General Dental Consultation)",
+      "actor": "Patient (6849295209)",
+      "timestamp": "2026-10-15T08:00:22.457Z"
+    },
+    {
+      "id": "63350b71-5494-4ac9-bd90-bee520278004",
+      "action": "ADMIN_ACCOUNT_CONFIGURED",
+      "details": "Administrator account configured for clinic.admin@bsmartdental.in (Dr. Srinidhi)",
+      "actor": "Admin Setup Tool",
+      "timestamp": "2026-10-15T08:28:58.851Z"
     }
   ],
   "enquiries": [],

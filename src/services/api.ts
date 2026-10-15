@@ -248,7 +248,7 @@ export const clinicApi = {
       connected: boolean;
       projectUrl: string;
       projectId: string;
-      tablesFound: { appointments: boolean; enquiries: boolean; services: boolean };
+      tablesFound: { appointments: boolean; enquiries: boolean; services: boolean; staff_users: boolean };
       error?: string;
       instructionsNeeded?: boolean;
     }>('/admin/supabase-status'),
@@ -269,5 +269,40 @@ export const clinicApi = {
       };
     }>('/admin/supabase-sync', {
       method: 'POST',
+    }),
+
+  getAuthStatus: () =>
+    request<{
+      envConfigured: boolean;
+      configuredAdminEmail: string | null;
+      supabaseStaffTableReady: boolean;
+      supabaseStaffCount: number;
+      defaultDemoAllowed: boolean;
+      clinicSaltProtected: boolean;
+    }>('/admin/auth-status'),
+
+  setupAdminAccount: (payload: { email: string; password: string; name?: string; setupKey?: string }) =>
+    request<{
+      success: boolean;
+      message: string;
+      savedToSupabase: boolean;
+      user: { id: string; email: string; name: string; role: string };
+      token: string;
+    }>('/admin/setup', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  getStaffUsers: () =>
+    request<{
+      supabaseUsers: { id: string; email: string; name: string; role: string; created_at: string }[];
+      localUsers: { id: string; email: string; name: string; role: string; source: string }[];
+      envConfiguredUser: { email: string; role: string } | null;
+    }>('/admin/staff-users'),
+
+  changeAdminPassword: (currentPassword: string, newPassword: string) =>
+    request<{ success: boolean; message: string; token: string }>('/admin/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
     }),
 };

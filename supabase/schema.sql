@@ -107,3 +107,55 @@ DROP POLICY IF EXISTS "Allow public read services" ON public.services;
 CREATE POLICY "Allow public read services" ON public.services
     FOR SELECT TO anon, authenticated
     USING (true);
+
+-- 1. Enable Required Extensions (UUID and PGCrypto for secure password hashing)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- 6. Staff Users Table (Persistent Supabase-managed staff accounts)
+CREATE TABLE IF NOT EXISTS public.staff_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'admin',
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for fast case-insensitive email lookup
+CREATE INDEX IF NOT EXISTS idx_staff_users_email ON public.staff_users(email);
+
+ALTER TABLE public.staff_users ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow staff authentication" ON public.staff_users;
+CREATE POLICY "Allow staff authentication" ON public.staff_users
+    FOR ALL TO anon, authenticated
+    USING (true)
+    WITH CHECK (true);
+
+-- Optional: Initial Seed Account in Supabase (Salt: bsmart_salt_2026)
+-- Default initial password: admin123
+INSERT INTO public.staff_users (email, name, role, password_hash)
+VALUES (
+    'admin@bsmartdental.in',
+    'Dr. Srinidhi / Clinic Admin',
+    'admin',
+    encode(digest('admin123' || 'bsmart_salt_2026', 'sha256'), 'hex')
+)
+ON CONFLICT (email) DO NOTHING;
+
+-- SQL Template to Create or Reset Your Custom Administrator Account:
+-- To set your own email and password, run this single query in Supabase SQL Editor:
+-- INSERT INTO public.staff_users (email, name, role, password_hash)
+-- VALUES (
+--     'your-clinic-email@example.com',
+--     'Clinic Administrator',
+--     'admin',
+--     encode(digest('YOUR_NEW_PASSWORD' || 'bsmart_salt_2026', 'sha256'), 'hex')
+-- )
+-- ON CONFLICT (email) DO UPDATE 
+-- SET password_hash = encode(digest('YOUR_NEW_PASSWORD' || 'bsmart_salt_2026', 'sha256'), 'hex'),
+--     updated_at = NOW();
+
+

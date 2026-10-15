@@ -14,10 +14,13 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   await Database.init();
 
-  const app = express();
-  const PORT = parseInt(process.env.PORT || '3000', 10);
+  const args = process.argv.slice(2);
+  const portArgIndex = args.indexOf('--port');
+  const portFromArg = portArgIndex !== -1 && args[portArgIndex + 1] ? parseInt(args[portArgIndex + 1], 10) : null;
+  const PORT = portFromArg || (process.env.PORT ? parseInt(process.env.PORT, 10) : 3000);
   const isProd = process.env.NODE_ENV === 'production';
 
+  const app = express();
   app.use(express.json());
 
   // Mount API routes

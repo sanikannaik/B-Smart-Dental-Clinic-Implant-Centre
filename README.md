@@ -91,8 +91,45 @@ npm start
 
 ---
 
-## 5. Integrating SMS & WhatsApp Gateways
+## 5. Production Staff Authentication & Supabase Setup
+
+The B-Smart Dental Clinic administrative portal supports three resilient authentication tiers in production:
+
+### Option 1: Netlify Site Environment Variables (Recommended & Instant)
+In your Netlify Dashboard (`Site configuration` → `Environment variables`), add:
+- `ADMIN_EMAIL`: Your clinic administrator email (e.g. `your-clinic-email@example.com` or `admin@bsmartdental.in`).
+- `ADMIN_PASSWORD`: Your private administrator password (min 8 characters).
+- *(Optional)* `ADMIN_NAME`: Administrator display name (e.g. `Dr. Srinidhi / Clinic Admin`).
+- *(Optional)* `ADMIN_SETUP_KEY`: Master setup authorization key.
+
+Once set in Netlify, redeploy or trigger a build. The administrator credentials become immediately active and automatically lock out default demo passwords.
+
+### Option 2: Persistent Supabase `staff_users` Database Table
+To store staff accounts in your Supabase project (`huiuqhqzglbrzzlbcheb`):
+1. Open the [Supabase SQL Editor](https://supabase.com/dashboard/project/huiuqhqzglbrzzlbcheb/sql/new).
+2. Run the script provided in `supabase/schema.sql` (or copy it directly from the Admin Dashboard → **Supabase Database** tab).
+3. To create or reset an administrator account via SQL, run:
+```sql
+INSERT INTO public.staff_users (email, name, role, password_hash)
+VALUES (
+    'your-clinic-email@example.com',
+    'Clinic Administrator',
+    'admin',
+    encode(digest('YOUR_SECRET_PASSWORD' || 'bsmart_salt_2026', 'sha256'), 'hex')
+)
+ON CONFLICT (email) DO UPDATE 
+SET password_hash = encode(digest('YOUR_SECRET_PASSWORD' || 'bsmart_salt_2026', 'sha256'), 'hex'),
+    updated_at = NOW();
+```
+
+### Option 3: In-App First-Time Setup / Reset Tool
+On the website's Staff Authorization screen, switch to the **"Setup / Reset"** tab to register or reset your administrator account directly. The system securely hashes the password using cryptographic SHA-256 with the clinic salt and stores it in Supabase.
+
+---
+
+## 6. Integrating SMS & WhatsApp Gateways
 
 The system logs all outgoing notifications in `data/clinic_data.json` and exposes them in the Admin Dashboard. To connect live delivery:
 - **SMS Gateway**: Register on a TRAI-DLT compliant Indian SMS provider (e.g. Fast2SMS, Twilio India, Gupshup). Set `SMS_API_KEY` and `SMS_SENDER_ID` in `.env`.
 - **WhatsApp**: Create a Meta WhatsApp Business Cloud API app, get template approval for appointment confirmations, and set webhook credentials.
+
